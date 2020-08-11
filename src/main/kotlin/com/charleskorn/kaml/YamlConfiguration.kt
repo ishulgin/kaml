@@ -18,6 +18,8 @@
 
 package com.charleskorn.kaml
 
+import kotlin.reflect.KClass
+
 /**
  * Configuration options for parsing YAML to objects and serialising objects to YAML.
  *
@@ -27,13 +29,17 @@ package com.charleskorn.kaml
  * * [polymorphismStyle]: how to read or write the type of a polymorphic object:
  *    * [PolymorphismStyle.Tag]: use a YAML tag (eg. `!<typeOfThing> { property: value }`)
  *    * [PolymorphismStyle.Property]: use a property (eg. `{ type: typeOfThing, property: value }`)
+ * * [customDecoders]: specify custom decoders that can be used in [UseCustomYamlDecoder]
  */
-data class YamlConfiguration constructor(
+class YamlConfiguration constructor(
     internal val encodeDefaults: Boolean = true,
     internal val strictMode: Boolean = true,
     internal val extensionDefinitionPrefix: String? = null,
-    internal val polymorphismStyle: PolymorphismStyle = PolymorphismStyle.Tag
-)
+    internal val polymorphismStyle: PolymorphismStyle = PolymorphismStyle.Tag,
+    customDecoders: List<YamlCustomDecoder> = emptyList()
+) {
+    internal val customDecoders: Map<KClass<out YamlCustomDecoder>, YamlCustomDecoder> = customDecoders.associateBy { it::class }
+}
 
 enum class PolymorphismStyle {
     Tag,
