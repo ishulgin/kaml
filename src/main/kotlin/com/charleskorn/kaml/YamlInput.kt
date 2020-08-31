@@ -195,18 +195,19 @@ abstract class YamlInput(val node: YamlNode, override var context: SerialModule,
 }
 
 private class YamlScalarInput(val scalar: YamlScalar, context: SerialModule, configuration: YamlConfiguration) : YamlInput(scalar, context, configuration) {
-    override fun decodeString(): String = scalar.content
-    override fun decodeInt(): Int = scalar.toInt()
-    override fun decodeLong(): Long = scalar.toLong()
-    override fun decodeShort(): Short = scalar.toShort()
-    override fun decodeByte(): Byte = scalar.toByte()
-    override fun decodeDouble(): Double = scalar.toDouble()
-    override fun decodeFloat(): Float = scalar.toFloat()
-    override fun decodeBoolean(): Boolean = scalar.toBoolean()
-    override fun decodeChar(): Char = scalar.toChar()
+    override fun decodeString(): String = scalar.withProcessedContent().content
+    override fun decodeInt(): Int = scalar.withProcessedContent().toInt()
+    override fun decodeLong(): Long = scalar.withProcessedContent().toLong()
+    override fun decodeShort(): Short = scalar.withProcessedContent().toShort()
+    override fun decodeByte(): Byte = scalar.withProcessedContent().toByte()
+    override fun decodeDouble(): Double = scalar.withProcessedContent().toDouble()
+    override fun decodeFloat(): Float = scalar.withProcessedContent().toFloat()
+    override fun decodeBoolean(): Boolean = scalar.withProcessedContent().toBoolean()
+    override fun decodeChar(): Char = scalar.withProcessedContent().toChar()
 
     override fun decodeEnum(enumDescriptor: SerialDescriptor): Int {
-        val index = enumDescriptor.getElementIndex(scalar.content)
+        val content = scalar.withProcessedContent().content
+        val index = enumDescriptor.getElementIndex(content)
 
         if (index != UNKNOWN_NAME) {
             return index
@@ -217,12 +218,18 @@ private class YamlScalarInput(val scalar: YamlScalar, context: SerialModule, con
             .sorted()
             .joinToString(", ")
 
-        throw YamlScalarFormatException("Value ${scalar.contentToString()} is not a valid option, permitted choices are: $choices", scalar.location, scalar.content)
+        throw YamlScalarFormatException("Value '$content' is not a valid option, permitted choices are: $choices", scalar.location, content)
     }
 
     override fun getCurrentLocation(): Location = scalar.location
 
     override fun decodeElementIndex(descriptor: SerialDescriptor): Int = 0
+
+    fun YamlScalar.withProcessedContent(): YamlScalar {
+        return configuration.stringContentProcessor?.let { processor ->
+             YamlScalar(processor(content), location)
+        } ?: this
+    }
 }
 
 private class YamlNullInput(val nullValue: YamlNode, context: SerialModule, configuration: YamlConfiguration) : YamlInput(nullValue, context, configuration) {

@@ -36,7 +36,8 @@ class YamlConfiguration constructor(
     internal val strictMode: Boolean = true,
     internal val extensionDefinitionPrefix: String? = null,
     internal val polymorphismStyle: PolymorphismStyle = PolymorphismStyle.Tag,
-    customDecoders: List<YamlCustomDecoder> = emptyList()
+    customDecoders: List<YamlCustomDecoder> = emptyList(),
+    val stringContentProcessor: ((String) -> String)? = null
 ) {
     internal val customDecoders: Map<KClass<out YamlCustomDecoder>, YamlCustomDecoder> = customDecoders.associateBy { it::class }
 }
