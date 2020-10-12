@@ -1,6 +1,6 @@
 /*
 
-   Copyright 2018-2019 Charles Korn.
+   Copyright 2018-2020 Charles Korn.
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -18,19 +18,26 @@
 
 package com.charleskorn.kaml
 
-sealed class YamlNode(open val location: Location) {
-    abstract fun equivalentContentTo(other: YamlNode): Boolean
-    abstract fun contentToString(): String
+public sealed class YamlNode(public open val path: YamlPath) {
+    public val location: Location
+        get() = path.endLocation
+
+    public abstract fun equivalentContentTo(other: YamlNode): Boolean
+    public abstract fun contentToString(): String
+    public abstract fun withPath(newPath: YamlPath): YamlNode
+
+    protected fun replacePathOnChild(child: YamlNode, newParentPath: YamlPath): YamlPath =
+        YamlPath(newParentPath.segments + child.path.segments.drop(path.segments.size))
 }
 
-data class YamlScalar(val content: String, override val location: Location) : YamlNode(location) {
+public data class YamlScalar(val content: String, override val path: YamlPath) : YamlNode(path) {
     override fun equivalentContentTo(other: YamlNode): Boolean = other is YamlScalar && this.content == other.content
     override fun contentToString(): String = "'$content'"
 
-    fun toByte() = convertToIntegerLikeValue(String::toByte, "byte")
-    fun toShort() = convertToIntegerLikeValue(String::toShort, "short")
-    fun toInt() = convertToIntegerLikeValue(String::toInt, "integer")
-    fun toLong() = convertToIntegerLikeValue(String::toLong, "long")
+    public fun toByte(): Byte = convertToIntegerLikeValue(String::toByte, "byte")
+    public fun toShort(): Short = convertToIntegerLikeValue(String::toShort, "short")
+    public fun toInt(): Int = convertToIntegerLikeValue(String::toInt, "integer")
+    public fun toLong(): Long = convertToIntegerLikeValue(String::toLong, "long")
 
     private fun <T> convertToIntegerLikeValue(converter: (String, Int) -> T, description: String): T {
         try {
@@ -42,54 +49,61 @@ data class YamlScalar(val content: String, override val location: Location) : Ya
                 else -> converter(content, 10)
             }
         } catch (e: NumberFormatException) {
-            throw YamlScalarFormatException("Value '$content' is not a valid $description value.", location, content)
+            throw YamlScalarFormatException("Value '$content' is not a valid $description value.", path, content)
         }
     }
 
-    fun toFloat(): Float {
+    public fun toFloat(): Float {
         return when (content) {
             ".inf", ".Inf", ".INF" -> Float.POSITIVE_INFINITY
             "-.inf", "-.Inf", "-.INF" -> Float.NEGATIVE_INFINITY
             ".nan", ".NaN", ".NAN" -> Float.NaN
-            else -> try {
-                content.toFloat()
-            } catch (e: NumberFormatException) {
-                throw YamlScalarFormatException("Value '$content' is not a valid floating point value.", location, content)
-            }
+            else ->
+                try {
+                    content.toFloat()
+                } catch (e: NumberFormatException) {
+                    throw YamlScalarFormatException("Value '$content' is not a valid floating point value.", path, content)
+                }
         }
     }
 
-    fun toDouble(): Double {
+    public fun toDouble(): Double {
         return when (content) {
             ".inf", ".Inf", ".INF" -> Double.POSITIVE_INFINITY
             "-.inf", "-.Inf", "-.INF" -> Double.NEGATIVE_INFINITY
             ".nan", ".NaN", ".NAN" -> Double.NaN
-            else -> try {
-                content.toDouble()
-            } catch (e: NumberFormatException) {
-                throw YamlScalarFormatException("Value '$content' is not a valid floating point value.", location, content)
-            }
+            else ->
+                try {
+                    content.toDouble()
+                } catch (e: NumberFormatException) {
+                    throw YamlScalarFormatException("Value '$content' is not a valid floating point value.", path, content)
+                }
         }
     }
 
-    fun toBoolean(): Boolean {
+    public fun toBoolean(): Boolean {
         return when (content) {
             "true", "True", "TRUE" -> true
             "false", "False", "FALSE" -> false
-            else -> throw YamlScalarFormatException("Value '$content' is not a valid boolean, permitted choices are: true or false", location, content)
+            else -> throw YamlScalarFormatException("Value '$content' is not a valid boolean, permitted choices are: true or false", path, content)
         }
     }
 
-    fun toChar(): Char =
-        content.singleOrNull() ?: throw YamlScalarFormatException("Value '$content' is not a valid character value.", location, content)
+    public fun toChar(): Char = content.singleOrNull() ?: throw YamlScalarFormatException("Value '$content' is not a valid character value.", path, content)
+
+    override fun withPath(newPath: YamlPath): YamlScalar = this.copy(path = newPath)
+
+    override fun toString(): String = "scalar @ $path : $content"
 }
 
-data class YamlNull(override val location: Location) : YamlNode(location) {
+public data class YamlNull(override val path: YamlPath) : YamlNode(path) {
     override fun equivalentContentTo(other: YamlNode): Boolean = other is YamlNull
     override fun contentToString(): String = "null"
+    override fun withPath(newPath: YamlPath): YamlNull = YamlNull(newPath)
+    override fun toString(): String = "null @ $path"
 }
 
-data class YamlList(val items: List<YamlNode>, override val location: Location) : YamlNode(location) {
+public data class YamlList(val items: List<YamlNode>, override val path: YamlPath) : YamlNode(path) {
     override fun equivalentContentTo(other: YamlNode): Boolean {
         if (other !is YamlList) {
             return false
@@ -103,11 +117,34 @@ data class YamlList(val items: List<YamlNode>, override val location: Location) 
     }
 
     override fun contentToString(): String = "[" + items.joinToString(", ") { it.contentToString() } + "]"
+
+    override fun withPath(newPath: YamlPath): YamlList {
+        val updatedItems = items.map { it.withPath(replacePathOnChild(it, newPath)) }
+
+        return YamlList(updatedItems, newPath)
+    }
+
+    override fun toString(): String {
+        val builder = StringBuilder()
+
+        builder.appendLine("list @ $path (size: ${items.size})")
+
+        items.forEachIndexed { index, item ->
+            builder.appendLine("- item $index:")
+
+            item.toString().lines().forEach { line ->
+                builder.append("  ")
+                builder.appendLine(line)
+            }
+        }
+
+        return builder.trimEnd().toString()
+    }
 }
 
-data class YamlMap(val entries: Map<YamlNode, YamlNode>, override val location: Location) : YamlNode(location) {
+public data class YamlMap(val entries: Map<YamlScalar, YamlNode>, override val path: YamlPath) : YamlNode(path) {
     init {
-        val keys = entries.keys.sortedWith(Comparator { a, b ->
+        val keys = entries.keys.sortedWith { a, b ->
             val lineComparison = a.location.line.compareTo(b.location.line)
 
             if (lineComparison != 0) {
@@ -115,13 +152,13 @@ data class YamlMap(val entries: Map<YamlNode, YamlNode>, override val location: 
             } else {
                 a.location.column.compareTo(b.location.column)
             }
-        })
+        }
 
         keys.forEachIndexed { index, key ->
             val duplicate = keys.subList(0, index).firstOrNull { it.equivalentContentTo(key) }
 
             if (duplicate != null) {
-                throw DuplicateKeyException(duplicate.location, key.location, key.contentToString())
+                throw DuplicateKeyException(duplicate.path, key.path, key.contentToString())
             }
         }
     }
@@ -142,9 +179,53 @@ data class YamlMap(val entries: Map<YamlNode, YamlNode>, override val location: 
 
     override fun contentToString(): String =
         "{" + entries.map { (key, value) -> "${key.contentToString()}: ${value.contentToString()}" }.joinToString(", ") + "}"
+
+    @Suppress("UNCHECKED_CAST")
+    public operator fun <T : YamlNode> get(key: String): T? =
+        entries.entries
+            .firstOrNull { it.key.content == key }
+            ?.value as T?
+
+    public fun getScalar(key: String): YamlScalar? = when (val node = get<YamlNode>(key)) {
+        null -> null
+        is YamlScalar -> node
+        else -> throw IncorrectTypeException("Value for '$key' is not a scalar.", node.path)
+    }
+
+    override fun withPath(newPath: YamlPath): YamlMap {
+        val updatedEntries = entries
+            .mapKeys { (k, _) -> k.withPath(replacePathOnChild(k, newPath)) }
+            .mapValues { (_, v) -> v.withPath(replacePathOnChild(v, newPath)) }
+
+        return YamlMap(updatedEntries, newPath)
+    }
+
+    override fun toString(): String {
+        val builder = StringBuilder()
+
+        builder.appendLine("map @ $path (size: ${entries.size})")
+
+        entries.forEach { (key, value) ->
+            builder.appendLine("- key:")
+
+            key.toString().lines().forEach { line ->
+                builder.append("    ")
+                builder.appendLine(line)
+            }
+
+            builder.appendLine("  value:")
+
+            value.toString().lines().forEach { line ->
+                builder.append("    ")
+                builder.appendLine(line)
+            }
+        }
+
+        return builder.trimEnd().toString()
+    }
 }
 
-data class YamlTaggedNode(val tag: String, val innerNode: YamlNode) : YamlNode(innerNode.location) {
+public data class YamlTaggedNode(val tag: String, val innerNode: YamlNode) : YamlNode(innerNode.path) {
     override fun equivalentContentTo(other: YamlNode): Boolean {
         if (other !is YamlTaggedNode) {
             return false
@@ -158,4 +239,7 @@ data class YamlTaggedNode(val tag: String, val innerNode: YamlNode) : YamlNode(i
     }
 
     override fun contentToString(): String = "!$tag ${innerNode.contentToString()}"
+    override fun withPath(newPath: YamlPath): YamlNode = this.copy(innerNode = innerNode.withPath(newPath))
+
+    override fun toString(): String = "tagged '$tag': $innerNode"
 }

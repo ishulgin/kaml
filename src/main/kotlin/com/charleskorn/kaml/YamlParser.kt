@@ -1,6 +1,6 @@
 /*
 
-   Copyright 2018-2019 Charles Korn.
+   Copyright 2018-2020 Charles Korn.
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -25,47 +25,47 @@ import org.snakeyaml.engine.v2.parser.ParserImpl
 import org.snakeyaml.engine.v2.scanner.StreamReader
 import java.io.StringReader
 
-class YamlParser(yamlSource: String) {
+internal class YamlParser(yamlSource: String) {
     private val dummyFileName = "DUMMY_FILE_NAME"
     private val loadSettings = LoadSettings.builder().setLabel(dummyFileName).build()
     private val streamReader = StreamReader(StringReader(yamlSource), loadSettings)
     private val events = ParserImpl(streamReader, loadSettings)
 
     init {
-        consumeEventOfType(Event.ID.StreamStart)
+        consumeEventOfType(Event.ID.StreamStart, YamlPath.root)
 
-        if (peekEvent().eventId == Event.ID.StreamEnd) {
-            throw EmptyYamlDocumentException("The YAML document is empty.", Location(1, 1))
+        if (peekEvent(YamlPath.root).eventId == Event.ID.StreamEnd) {
+            throw EmptyYamlDocumentException("The YAML document is empty.", YamlPath.root)
         }
 
-        consumeEventOfType(Event.ID.DocumentStart)
+        consumeEventOfType(Event.ID.DocumentStart, YamlPath.root)
     }
 
     fun ensureEndOfStreamReached() {
-        consumeEventOfType(Event.ID.DocumentEnd)
-        consumeEventOfType(Event.ID.StreamEnd)
+        consumeEventOfType(Event.ID.DocumentEnd, YamlPath.root)
+        consumeEventOfType(Event.ID.StreamEnd, YamlPath.root)
     }
 
-    fun consumeEvent(): Event = checkEvent { events.next() }
-    fun peekEvent(): Event = checkEvent { events.peekEvent() }
+    fun consumeEvent(path: YamlPath): Event = checkEvent(path) { events.next() }
+    fun peekEvent(path: YamlPath): Event = checkEvent(path) { events.peekEvent() }
 
-    fun consumeEventOfType(type: Event.ID) {
-        val event = consumeEvent()
+    fun consumeEventOfType(type: Event.ID, path: YamlPath) {
+        val event = consumeEvent(path)
 
         if (event.eventId != type) {
-            throw MalformedYamlException("Unexpected ${event.eventId}, expected $type", Location(event.startMark.get().line, event.startMark.get().column))
+            throw MalformedYamlException("Unexpected ${event.eventId}, expected $type", path.withError(Location(event.startMark.get().line, event.startMark.get().column)))
         }
     }
 
-    private fun checkEvent(retrieve: () -> Event): Event {
+    private fun checkEvent(path: YamlPath, retrieve: () -> Event): Event {
         try {
             return retrieve()
         } catch (e: MarkedYamlEngineException) {
-            throw translateYamlEngineException(e)
+            throw translateYamlEngineException(e, path)
         }
     }
 
-    private fun translateYamlEngineException(e: MarkedYamlEngineException): MalformedYamlException {
+    private fun translateYamlEngineException(e: MarkedYamlEngineException, path: YamlPath): MalformedYamlException {
         val contextMessage = if (e.context == null) {
             ""
         } else {
@@ -83,7 +83,7 @@ class YamlParser(yamlSource: String) {
             " at line ${problemMark.line + 1}, column ${problemMark.column + 1}:\n" +
             problemMark.createSnippet(4, Int.MAX_VALUE)
 
-        return MalformedYamlException(message, Location(problemMark.line + 1, problemMark.column + 1))
+        return MalformedYamlException(message, path.withError(Location(problemMark.line + 1, problemMark.column + 1)))
     }
 
     private fun translateYamlEngineExceptionMessage(message: String): String = when (message) {

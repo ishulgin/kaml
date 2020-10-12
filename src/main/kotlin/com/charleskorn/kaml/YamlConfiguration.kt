@@ -1,6 +1,6 @@
 /*
 
-   Copyright 2018-2019 Charles Korn.
+   Copyright 2018-2020 Charles Korn.
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@
 package com.charleskorn.kaml
 
 import kotlin.reflect.KClass
+import org.snakeyaml.engine.v2.common.FlowStyle
 
 /**
  * Configuration options for parsing YAML to objects and serialising objects to YAML.
@@ -29,20 +30,48 @@ import kotlin.reflect.KClass
  * * [polymorphismStyle]: how to read or write the type of a polymorphic object:
  *    * [PolymorphismStyle.Tag]: use a YAML tag (eg. `!<typeOfThing> { property: value }`)
  *    * [PolymorphismStyle.Property]: use a property (eg. `{ type: typeOfThing, property: value }`)
+ * * [polymorphismPropertyName]: property name to use when [polymorphismStyle] is [PolymorphismStyle.Property]
+ * * [encodingIndentationSize]: number of spaces to use as indentation when encoding objects as YAML
+ * * [breakScalarsAt]: maximum length of scalars when encoding objects as YAML (scalars exceeding this length will be split into multiple lines)
+ * * [sequenceStyle]: how sequences (aka lists and arrays) should be formatted. See [SequenceStyle] for an example of each
  * * [customDecoders]: specify custom decoders that can be used in [UseCustomYamlDecoder]
  */
-class YamlConfiguration constructor(
+public class YamlConfiguration constructor(
     internal val encodeDefaults: Boolean = true,
     internal val strictMode: Boolean = true,
     internal val extensionDefinitionPrefix: String? = null,
     internal val polymorphismStyle: PolymorphismStyle = PolymorphismStyle.Tag,
+    internal val polymorphismPropertyName: String = "type",
+    internal val encodingIndentationSize: Int = 2,
+    internal val breakScalarsAt: Int = 80,
+    internal val sequenceStyle: SequenceStyle = SequenceStyle.Block,
     customDecoders: List<YamlCustomDecoder> = emptyList(),
-    val stringContentProcessor: ((String) -> String)? = null
+    internal val stringContentProcessor: ((String) -> String)? = null
 ) {
     internal val customDecoders: Map<KClass<out YamlCustomDecoder>, YamlCustomDecoder> = customDecoders.associateBy { it::class }
 }
 
-enum class PolymorphismStyle {
+public enum class PolymorphismStyle {
     Tag,
     Property
+}
+
+public enum class SequenceStyle(internal val flowStyle: FlowStyle) {
+    /**
+     * The block form, eg
+     * ```yaml
+     * - 1
+     * - 2
+     * - 3
+     * ```
+     */
+    Block(FlowStyle.BLOCK),
+
+    /**
+     * The flow form, eg
+     * ```yaml
+     * [1, 2, 3]
+     * ```
+     */
+    Flow(FlowStyle.FLOW)
 }

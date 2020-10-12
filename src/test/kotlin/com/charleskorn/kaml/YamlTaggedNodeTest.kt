@@ -1,6 +1,6 @@
 /*
 
-   Copyright 2018-2019 Charles Korn.
+   Copyright 2018-2020 Charles Korn.
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -23,12 +23,12 @@ import ch.tutteli.atrium.api.verbs.expect
 import org.spekframework.spek2.Spek
 import org.spekframework.spek2.style.specification.describe
 
-object YamlTaggedTest : Spek({
+object YamlTaggedNodeTest : Spek({
     describe("a YAML tagged node") {
         describe("testing equivalence") {
             val tagged = YamlTaggedNode(
                 "tag",
-                YamlScalar("test", Location(4, 1))
+                YamlScalar("test", YamlPath.root)
             )
 
             context("comparing it to the same instance") {
@@ -41,7 +41,7 @@ object YamlTaggedTest : Spek({
                 it("indicates that they are not equivalent") {
                     expect(
                         tagged.equivalentContentTo(
-                            YamlScalar("test", Location(4, 1))
+                            YamlScalar("test", YamlPath.root)
                         )
                     ).toBe(false)
                 }
@@ -53,7 +53,7 @@ object YamlTaggedTest : Spek({
                         tagged.equivalentContentTo(
                             YamlTaggedNode(
                                 "tag2",
-                                YamlScalar("test", Location(4, 1))
+                                YamlScalar("test", YamlPath.root)
                             )
                         )
                     ).toBe(false)
@@ -66,7 +66,7 @@ object YamlTaggedTest : Spek({
                         tagged.equivalentContentTo(
                             YamlTaggedNode(
                                 "tag",
-                                YamlScalar("test2", Location(4, 1))
+                                YamlScalar("test2", YamlPath.root)
                             )
                         )
                     ).toBe(false)
@@ -76,11 +76,29 @@ object YamlTaggedTest : Spek({
 
         describe("converting the content to a human-readable string") {
             context("a tagged scalar") {
-                val map = YamlTaggedNode("tag", YamlScalar("test", Location(4, 1)))
+                val map = YamlTaggedNode("tag", YamlScalar("test", YamlPath.root))
 
                 it("returns tag and child") {
                     expect(map.contentToString()).toBe("!tag 'test'")
                 }
+            }
+        }
+
+        describe("replacing its path") {
+            val original = YamlTaggedNode("tag", YamlScalar("value", YamlPath.root))
+            val newPath = YamlPath.forAliasDefinition("blah", Location(2, 3))
+
+            it("returns a tagged node with the inner node updated with the provided path") {
+                expect(original.withPath(newPath)).toBe(YamlTaggedNode("tag", YamlScalar("value", newPath)))
+            }
+        }
+
+        describe("converting it to a string") {
+            val path = YamlPath.root.withListEntry(2, Location(3, 4))
+            val value = YamlTaggedNode("some tag", YamlScalar("some value", path))
+
+            it("returns a human-readable description of itself") {
+                expect(value.toString()).toBe("tagged 'some tag': scalar @ $path : some value")
             }
         }
     }

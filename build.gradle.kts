@@ -1,6 +1,6 @@
 /*
 
-   Copyright 2018-2019 Charles Korn.
+   Copyright 2018-2020 Charles Korn.
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -31,14 +31,14 @@ buildscript {
     }
 
     dependencies {
-        classpath("org.jetbrains.kotlin:kotlin-serialization:1.3.72")
+        classpath(kotlin("serialization", version = "1.4.10"))
     }
 }
 
 plugins {
-    kotlin("jvm") version "1.3.72"
+    kotlin("jvm") version "1.4.10"
 
-    apply { id("com.github.ben-manes.versions") version "0.29.0" }
+    apply { id("com.github.ben-manes.versions") version "0.33.0" }
 }
 
 apply(plugin = "kotlinx-serialization")
@@ -56,19 +56,23 @@ dependencies {
 
     implementation(kotlin("stdlib-jdk8"))
     implementation(group = "org.snakeyaml", name = "snakeyaml-engine", version = "2.1")
-    implementation(group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-runtime", version = "0.20.0")
+    implementation(group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-core", version = "1.0.0")
 
-    val spekVersion = "2.0.12"
+    val spekVersion = "2.0.13"
 
     testImplementation(group = "org.spekframework.spek2", name = "spek-dsl-jvm", version = spekVersion)
-    testImplementation(group = "ch.tutteli.atrium", name = "atrium-fluent-en_GB", version = "0.12.0")
+    testImplementation(group = "ch.tutteli.atrium", name = "atrium-fluent-en_GB", version = "0.13.0")
 
     testRuntimeOnly(group = "org.spekframework.spek2", name = "spek-runner-junit5", version = spekVersion)
 }
 
 tasks.withType<KotlinCompile> {
     kotlinOptions.jvmTarget = "1.8"
-    kotlinOptions.freeCompilerArgs = listOf("-Xuse-experimental=kotlin.Experimental")
+    kotlinOptions.freeCompilerArgs = listOf("-Xuse-experimental=kotlin.RequiresOptIn")
+}
+
+kotlin {
+    explicitApi()
 }
 
 configureAssemble()

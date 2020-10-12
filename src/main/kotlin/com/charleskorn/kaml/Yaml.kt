@@ -1,6 +1,6 @@
 /*
 
-   Copyright 2018-2019 Charles Korn.
+   Copyright 2018-2020 Charles Korn.
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -19,42 +19,41 @@
 package com.charleskorn.kaml
 
 import kotlinx.serialization.DeserializationStrategy
-import kotlinx.serialization.SerialFormat
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.SerializationStrategy
 import kotlinx.serialization.StringFormat
-import kotlinx.serialization.decode
-import kotlinx.serialization.encode
-import kotlinx.serialization.modules.EmptyModule
-import kotlinx.serialization.modules.SerialModule
+import kotlinx.serialization.modules.EmptySerializersModule
+import kotlinx.serialization.modules.SerializersModule
 import org.snakeyaml.engine.v2.api.StreamDataWriter
 import java.io.StringWriter
 
-class Yaml(
-    override val context: SerialModule = EmptyModule,
-    val configuration: YamlConfiguration = YamlConfiguration()
-) : SerialFormat, StringFormat {
-    override fun <T> parse(deserializer: DeserializationStrategy<T>, string: String): T {
+@OptIn(ExperimentalSerializationApi::class)
+public class Yaml(
+    override val serializersModule: SerializersModule = EmptySerializersModule,
+    public val configuration: YamlConfiguration = YamlConfiguration()
+) : StringFormat {
+    override fun <T> decodeFromString(deserializer: DeserializationStrategy<T>, string: String): T {
         val parser = YamlParser(string)
         val reader = YamlNodeReader(parser, configuration.extensionDefinitionPrefix)
         val rootNode = reader.read()
         parser.ensureEndOfStreamReached()
 
-        val input = YamlInput.createFor(rootNode, context, configuration, deserializer.descriptor)
-        return input.decode(deserializer)
+        val input = YamlInput.createFor(rootNode, serializersModule, configuration, deserializer.descriptor)
+        return input.decodeSerializableValue(deserializer)
     }
 
-    override fun <T> stringify(serializer: SerializationStrategy<T>, value: T): String {
+    override fun <T> encodeToString(serializer: SerializationStrategy<T>, value: T): String {
         val writer = object : StringWriter(), StreamDataWriter {
             override fun flush() { }
         }
 
-        val output = YamlOutput(writer, context, configuration)
-        output.encode(serializer, value)
+        val output = YamlOutput(writer, serializersModule, configuration)
+        output.encodeSerializableValue(serializer, value)
 
         return writer.toString()
     }
 
-    companion object {
-        val default = Yaml()
+    public companion object {
+        public val default: Yaml = Yaml()
     }
 }

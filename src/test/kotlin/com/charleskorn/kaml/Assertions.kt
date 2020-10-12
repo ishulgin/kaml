@@ -1,6 +1,6 @@
 /*
 
-   Copyright 2018-2019 Charles Korn.
+   Copyright 2018-2020 Charles Korn.
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -21,6 +21,10 @@ package com.charleskorn.kaml
 import ch.tutteli.atrium.api.fluent.en_GB.feature
 import ch.tutteli.atrium.creating.Expect
 
+fun <T : YamlException> Expect<T>.path(assertionCreator: Expect<YamlPath>.() -> Unit) {
+    feature(YamlException::path).addAssertionsCreatedBy(assertionCreator)
+}
+
 fun <T : YamlException> Expect<T>.line(assertionCreator: Expect<Int>.() -> Unit) {
     feature(YamlException::line).addAssertionsCreatedBy(assertionCreator)
 }
@@ -35,6 +39,14 @@ fun Expect<DuplicateKeyException>.originalLocation(assertionCreator: Expect<Loca
 
 fun Expect<DuplicateKeyException>.duplicateLocation(assertionCreator: Expect<Location>.() -> Unit) {
     feature(DuplicateKeyException::duplicateLocation).addAssertionsCreatedBy(assertionCreator)
+}
+
+fun Expect<DuplicateKeyException>.originalPath(assertionCreator: Expect<YamlPath>.() -> Unit) {
+    feature(DuplicateKeyException::originalPath).addAssertionsCreatedBy(assertionCreator)
+}
+
+fun Expect<DuplicateKeyException>.duplicatePath(assertionCreator: Expect<YamlPath>.() -> Unit) {
+    feature(DuplicateKeyException::duplicatePath).addAssertionsCreatedBy(assertionCreator)
 }
 
 fun Expect<DuplicateKeyException>.key(assertionCreator: Expect<String>.() -> Unit) {

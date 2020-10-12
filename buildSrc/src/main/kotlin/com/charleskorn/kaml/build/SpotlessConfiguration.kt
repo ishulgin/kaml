@@ -1,6 +1,6 @@
 /*
 
-   Copyright 2018-2019 Charles Korn.
+   Copyright 2018-2020 Charles Korn.
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -25,7 +25,7 @@ import org.gradle.kotlin.dsl.apply
 import org.gradle.kotlin.dsl.configure
 
 val licenseText = """
-   Copyright 2018-2019 Charles Korn.
+   Copyright 2018-2020 Charles Korn.
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -68,7 +68,7 @@ fun Project.configureSpotless() {
 
         kotlinGradle {
             target("*.gradle.kts", "gradle/*.gradle.kts", "buildSrc/*.gradle.kts")
-            ktlint("0.29.0")
+            ktlint("0.36.0")
 
             @Suppress("INACCESSIBLE_TYPE")
             licenseHeader(kotlinLicenseHeader, "import|tasks|apply|plugins")
@@ -80,7 +80,7 @@ fun Project.configureSpotless() {
 
         kotlin {
             target("src/**/*.kt", "buildSrc/**/*.kt")
-            ktlint("0.29.0")
+            ktlint("0.39.0")
 
             @Suppress("INACCESSIBLE_TYPE")
             licenseHeader(kotlinLicenseHeader)
